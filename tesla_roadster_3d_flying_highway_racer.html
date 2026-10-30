@@ -1,0 +1,1113 @@
+const bldgGeo = new THREE.BoxGeometry(1, 1, 1);<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tesla Roadster SpaceX Edition - 3D Skyway Racer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;700&display=swap');
+
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: #0284c7;
+            color: #1e293b;
+            overflow: hidden;
+            margin: 0;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .glow-red {
+            text-shadow: 0 0 12px rgba(239, 68, 68, 0.8), 0 0 24px rgba(239, 68, 68, 0.4);
+        }
+
+        .glow-cyan {
+            text-shadow: 0 0 12px rgba(6, 182, 212, 0.8), 0 0 24px rgba(6, 182, 212, 0.4);
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Custom Progress Bar Glow */
+        .progress-glow {
+            box-shadow: 0 0 12px currentColor;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen relative overflow-hidden bg-sky-500">
+
+    <!-- 3D WebGL Canvas -->
+    <div id="canvas-container" class="absolute inset-0 w-full h-full"></div>
+
+    <!-- HUD Overlay -->
+    <div id="hud" class="absolute inset-0 pointer-events-none p-4 md:p-6 flex flex-col justify-between hidden z-10">
+        <!-- Top Row: Score & Speedometer -->
+        <div class="flex justify-between items-start">
+            <!-- Speedometer & Status -->
+            <div class="glass-panel p-4 rounded-2xl border-l-4 border-l-red-600 w-48 md:w-56">
+                <div class="text-xs uppercase tracking-widest text-slate-600 font-orbitron font-bold">VEHICLE SPEED</div>
+                <div class="flex items-baseline gap-1">
+                    <span id="speedDisplay" class="text-3xl md:text-4xl font-black font-orbitron text-slate-900">0</span>
+                    <span class="text-sm font-bold text-red-600 font-orbitron">MPH</span>
+                </div>
+                <div id="flightStateTag" class="mt-1 text-xs font-bold font-orbitron text-cyan-600 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
+                    GROUND MODE
+                </div>
+            </div>
+
+            <!-- Police Pursuit Warning Indicator -->
+            <div id="pursuitAlert" class="glass-panel px-4 py-2 rounded-xl border-2 border-red-500 animate-bounce flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-red-600 animate-ping"></span>
+                <span class="font-orbitron font-black text-xs md:text-sm text-red-600 tracking-wider">🚨 POLICE PURSUIT ACTIVE</span>
+            </div>
+
+            <!-- Score & Energy Rings -->
+            <div class="glass-panel p-4 rounded-2xl border-r-4 border-r-cyan-600 text-right w-48 md:w-56">
+                <div class="text-xs uppercase tracking-widest text-slate-600 font-orbitron font-bold">DISTANCE / SCORE</div>
+                <div id="scoreDisplay" class="text-3xl md:text-4xl font-black font-orbitron text-cyan-600">0</div>
+                <div class="text-xs text-slate-600 font-orbitron mt-1">RINGS: <span id="ringsDisplay" class="text-amber-600 font-bold">0</span></div>
+            </div>
+        </div>
+
+        <!-- Center Message Popup for Thruster Feedback -->
+        <div id="centerNotice" class="self-center text-center font-orbitron text-lg md:text-2xl font-black opacity-0 transition-opacity duration-300 tracking-wider"></div>
+
+        <!-- Bottom Row: Cold Gas Thruster Reservoir Gauge & Controls -->
+        <div class="flex flex-col items-center gap-2 mb-2">
+            <!-- Thruster Tank Gauge Container -->
+            <div class="glass-panel px-6 py-3 rounded-2xl w-full max-w-md flex flex-col gap-2 border border-cyan-500/40">
+                <div class="flex justify-between items-center text-xs font-orbitron">
+                    <span class="text-slate-800 font-bold flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        SPACEX COLD GAS THRUSTER AIR TANK
+                    </span>
+                    <span id="thrusterTimerText" class="text-cyan-600 font-bold">100% READY</span>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="w-full bg-slate-200/90 h-4 rounded-full overflow-hidden p-0.5 border border-slate-300 relative">
+                    <div id="thrusterBar" class="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-100 w-full progress-glow text-cyan-500"></div>
+                </div>
+
+                <div class="flex justify-between text-[10px] text-slate-600 font-orbitron font-semibold">
+                    <span>AIR PRESSURIZED</span>
+                    <span id="cooldownNotice" class="text-amber-600">HOLD [SPACE] TO FLY</span>
+                </div>
+            </div>
+
+            <!-- Mobile Touch Flight Control Button -->
+            <button id="mobileFlyBtn" class="pointer-events-auto md:hidden w-full max-w-md py-4 bg-gradient-to-r from-cyan-600 to-blue-600 active:from-cyan-500 active:to-blue-500 rounded-xl font-orbitron font-black text-lg text-white shadow-lg shadow-cyan-500/30 border border-cyan-400/40">
+                🚀 HOLD TO FLY (OUTRUN POLICE)
+            </button>
+        </div>
+    </div>
+
+    <!-- Start Overlay -->
+    <div id="startOverlay" class="absolute inset-0 bg-slate-900/60 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center">
+        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-600 text-white text-xs font-orbitron font-bold mb-4 shadow-lg animate-pulse">
+            <span>🚨 HIGHWAY POLICE CHASE IN PROGRESS</span>
+        </div>
+        
+        <h1 class="text-4xl md:text-6xl font-black font-orbitron text-white drop-shadow-lg mb-2 tracking-wide">
+            TESLA ROADSTER 3D
+        </h1>
+        <p class="text-slate-100 text-sm md:text-base max-w-lg mb-6 font-medium drop-shadow">
+            Drive the Tesla Roadster under bright daylight on a busy highway. Outrun aggressive chasing police cars by engaging your SpaceX Cold Gas Thrusters to fly high in the air!
+        </p>
+
+        <!-- Controls Guide -->
+        <div class="glass-panel p-4 rounded-xl max-w-md w-full mb-8 text-xs text-slate-800 space-y-2 border border-white">
+            <div class="text-red-600 font-orbitron font-bold text-sm mb-2 uppercase border-b border-slate-300 pb-1">MISSION & CONTROLS</div>
+            <div class="flex justify-between"><span>Steer Left / Right:</span> <span class="text-slate-900 font-mono font-bold">A / D or ARROWS</span></div>
+            <div class="flex justify-between"><span>Activate Flight Mode:</span> <span class="text-cyan-700 font-mono font-bold">HOLD SPACEBAR</span></div>
+            <div class="flex justify-between"><span>Police Pursuit:</span> <span class="text-red-600 font-mono font-bold">FLY TO EVADE INTERCEPTORS</span></div>
+            <div class="flex justify-between"><span>Air Tank Refill:</span> <span class="text-amber-700 font-mono font-bold">5 SECOND COOLDOWN</span></div>
+        </div>
+
+        <button id="startBtn" class="px-10 py-4 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-cyan-500 text-white font-orbitron font-black text-lg tracking-wider hover:scale-105 active:scale-95 transition-all duration-200 shadow-xl shadow-red-600/40 border border-white/50">
+            ENGINE LAUNCH
+        </button>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="gameOverOverlay" class="absolute inset-0 bg-slate-900/80 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center hidden">
+        <div id="gameOverTitle" class="text-red-500 font-orbitron text-sm uppercase tracking-widest mb-1 font-bold">BUSTED BY POLICE</div>
+        <h2 id="gameOverHeading" class="text-4xl md:text-6xl font-black font-orbitron text-white mb-4">PURSUIT TERMINATED</h2>
+
+        <div class="glass-panel p-6 rounded-2xl mb-8 max-w-xs w-full space-y-4 border border-white">
+            <div>
+                <div class="text-xs uppercase font-orbitron text-slate-600 font-bold">Total Distance</div>
+                <div id="finalScore" class="text-3xl font-black font-orbitron text-cyan-600">0</div>
+            </div>
+            <div>
+                <div class="text-xs uppercase font-orbitron text-slate-600 font-bold">Energy Rings Collected</div>
+                <div id="finalRings" class="text-2xl font-bold font-orbitron text-amber-600">0</div>
+            </div>
+            <div>
+                <div class="text-xs uppercase font-orbitron text-slate-600 font-bold">Best Distance</div>
+                <div id="finalHighScore" class="text-xl font-bold font-orbitron text-slate-800">0</div>
+            </div>
+        </div>
+
+        <button id="restartBtn" class="px-10 py-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-orbitron font-black text-lg tracking-wider hover:scale-105 active:scale-95 transition-all duration-200 shadow-xl shadow-cyan-500/30 border border-white/50">
+            RETRY ESCAPE
+        </button>
+    </div>
+
+    <!-- Web Audio & Game Code Script -->
+    <script>
+        // --- Web Audio Sound Engine ---
+        class SoundController {
+            constructor() {
+                this.ctx = null;
+                this.engineGain = null;
+                this.engineOsc = null;
+                this.thrusterGain = null;
+                this.thrusterNoise = null;
+                this.sirenOsc = null;
+                this.sirenGain = null;
+                this.isInitialized = false;
+            }
+
+            init() {
+                if (this.isInitialized) return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+
+                // Engine synth sound
+                this.engineOsc = this.ctx.createOscillator();
+                this.engineGain = this.ctx.createGain();
+                this.engineOsc.type = 'sawtooth';
+                this.engineOsc.frequency.value = 65;
+                this.engineGain.gain.value = 0.05;
+
+                // Lowpass filter for deep electric engine hum
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 350;
+
+                this.engineOsc.connect(filter);
+                filter.connect(this.engineGain);
+                this.engineGain.connect(this.ctx.destination);
+                this.engineOsc.start();
+
+                // Thruster noise buffer
+                const bufferSize = this.ctx.sampleRate * 2;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                this.thrusterNoise = this.ctx.createBufferSource();
+                this.thrusterNoise.buffer = buffer;
+                this.thrusterNoise.loop = true;
+
+                const thrusterFilter = this.ctx.createBiquadFilter();
+                thrusterFilter.type = 'bandpass';
+                thrusterFilter.frequency.value = 1200;
+                thrusterFilter.Q.value = 1.5;
+
+                this.thrusterGain = this.ctx.createGain();
+                this.thrusterGain.gain.value = 0.0;
+
+                this.thrusterNoise.connect(thrusterFilter);
+                thrusterFilter.connect(this.thrusterGain);
+                this.thrusterGain.connect(this.ctx.destination);
+                this.thrusterNoise.start();
+
+                // Police Siren Synth
+                this.sirenOsc = this.ctx.createOscillator();
+                this.sirenGain = this.ctx.createGain();
+                this.sirenOsc.type = 'sine';
+                this.sirenOsc.frequency.value = 600;
+                this.sirenGain.gain.value = 0.0; // Starts silent until police near
+
+                this.sirenOsc.connect(this.sirenGain);
+                this.sirenGain.connect(this.ctx.destination);
+                this.sirenOsc.start();
+
+                this.isInitialized = true;
+            }
+
+            setEnginePitch(speed) {
+                if (!this.isInitialized) return;
+                this.engineOsc.frequency.setTargetAtTime(65 + speed * 1.5, this.ctx.currentTime, 0.1);
+            }
+
+            setThrusterActive(active) {
+                if (!this.isInitialized) return;
+                this.thrusterGain.gain.setTargetAtTime(active ? 0.25 : 0.0, this.ctx.currentTime, 0.1);
+            }
+
+            updatePoliceSiren(policeActive, distance) {
+                if (!this.isInitialized) return;
+                if (!policeActive) {
+                    this.sirenGain.gain.setTargetAtTime(0.0, this.ctx.currentTime, 0.2);
+                    return;
+                }
+                
+                // Oscillate siren frequency (Wail sound 600Hz -> 1100Hz)
+                const cycle = (this.ctx.currentTime * 2.5) % 1;
+                const freq = 600 + Math.sin(cycle * Math.PI * 2) * 350;
+                this.sirenOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.05);
+
+                // Volume based on proximity
+                const vol = Math.max(0, 0.12 - (distance / 600));
+                this.sirenGain.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.1);
+            }
+
+            playRingCollect() {
+                if (!this.isInitialized) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1174.66, this.ctx.currentTime + 0.18);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.18);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.18);
+            }
+
+            playCrash() {
+                if (!this.isInitialized) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.5);
+            }
+
+            playRefillComplete() {
+                if (!this.isInitialized) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(880, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+        }
+
+        const audio = new SoundController();
+
+        // --- 3D Scene Initialization (Daytime Environment) ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x38bdf8); // Bright Sky Blue
+        scene.fog = new THREE.FogExp2(0xbae6fd, 0.003); // Soft Light Daylight Fog
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // Bright Daylight Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.2); // Warm sunlight
+        sunLight.position.set(40, 80, 30);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 1024;
+        sunLight.shadow.mapSize.height = 1024;
+        sunLight.shadow.camera.near = 0.5;
+        sunLight.shadow.camera.far = 150;
+        scene.add(sunLight);
+
+        // --- Highway & Environment Setup ---
+        const ROAD_WIDTH = 22;
+        const ROAD_LENGTH = 600;
+        const NUM_LANES = 4;
+
+        // Highway Surface (Daytime Asphalt)
+        const roadGeo = new THREE.PlaneGeometry(ROAD_WIDTH, ROAD_LENGTH, 1, 100);
+        const roadMat = new THREE.MeshStandardMaterial({
+            color: 0x334155, // Bright Asphalt Gray
+            roughness: 0.4,
+            metalness: 0.1
+        });
+        const road = new THREE.Mesh(roadGeo, roadMat);
+        road.rotation.x = -Math.PI / 2;
+        road.position.z = -ROAD_LENGTH / 2 + 50;
+        road.receiveShadow = true;
+        scene.add(road);
+
+        // Side Barrier Guards
+        function createBarrier(x) {
+            const group = new THREE.Group();
+            const railGeo = new THREE.BoxGeometry(0.8, 1.2, ROAD_LENGTH);
+            const railMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.2, metalness: 0.8 });
+            const rail = new THREE.Mesh(railGeo, railMat);
+            rail.position.set(x, 0.6, -ROAD_LENGTH / 2 + 50);
+            group.add(rail);
+
+            // Red/White Guard Stripes
+            const stripGeo = new THREE.BoxGeometry(0.2, 0.3, ROAD_LENGTH);
+            const stripMat = new THREE.MeshStandardMaterial({ color: x < 0 ? 0xd97706 : 0x0284c7 });
+            const strip = new THREE.Mesh(stripGeo, stripMat);
+            strip.position.set(x + (x < 0 ? 0.35 : -0.35), 0.9, -ROAD_LENGTH / 2 + 50);
+            group.add(strip);
+
+            return group;
+        }
+
+        scene.add(createBarrier(-ROAD_WIDTH / 2));
+        scene.add(createBarrier(ROAD_WIDTH / 2));
+
+        // Road Lane Dash Markings (Bright Yellow/White Lines)
+        const dashLines = [];
+        const dashGeo = new THREE.PlaneGeometry(0.35, 4.5);
+        const dashMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 }); // Bright Yellow
+
+        const laneStep = ROAD_WIDTH / NUM_LANES;
+        for (let l = 1; l < NUM_LANES; l++) {
+            const laneX = -ROAD_WIDTH / 2 + l * laneStep;
+            for (let z = 50; z > -ROAD_LENGTH + 50; z -= 12) {
+                const dash = new THREE.Mesh(dashGeo, dashMat);
+                dash.rotation.x = -Math.PI / 2;
+                dash.position.set(laneX, 0.02, z);
+                scene.add(dash);
+                dashLines.push(dash);
+            }
+        }
+
+        // Environment Background Buildings / Daylight Cityscape & Trees
+        const buildings = [];
+        const cityColors = [0xcbd5e1, 0x94a3b8, 0x64748b, 0xe2e8f0];
+
+        for (let i = 0; i < 60; i++) {
+            const isLeft = Math.random() > 0.5;
+            const x = (isLeft ? -1 : 1) * (ROAD_WIDTH / 2 + 25 + Math.random() * 80);
+            const z = -Math.random() * ROAD_LENGTH;
+            const h = 30 + Math.random() * 80;
+            const w = 15 + Math.random() * 25;
+
+            const bldgMat = new THREE.MeshStandardMaterial({
+                color: cityColors[Math.floor(Math.random() * cityColors.length)],
+                roughness: 0.5
+            });
+            const bldg = new THREE.Mesh(bldgGeo, bldgMat);
+            bldg.scale.set(w, h, w);
+            bldg.position.set(x, h / 2, z);
+            scene.add(bldg);
+            buildings.push(bldg);
+        }
+
+        // --- 3D Procedural Tesla Roadster Construction ---
+        function createTeslaRoadster() {
+            const carGroup = new THREE.Group();
+
+            // Main Body
+            const bodyGeo = new THREE.BoxGeometry(2.1, 0.7, 4.2);
+            const bodyMat = new THREE.MeshStandardMaterial({
+                color: 0xd97706, // Metallic Electric Amber-Red Finish
+                roughness: 0.15,
+                metalness: 0.95
+            });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.6;
+            body.castShadow = true;
+            carGroup.add(body);
+
+            // Sleek Glass Canopy
+            const roofGeo = new THREE.BoxGeometry(1.6, 0.55, 2.0);
+            const glassMat = new THREE.MeshStandardMaterial({
+                color: 0x0f172a,
+                roughness: 0.1,
+                metalness: 0.9
+            });
+            const roof = new THREE.Mesh(roofGeo, glassMat);
+            roof.position.set(0, 1.0, -0.2);
+            carGroup.add(roof);
+
+            // Front Hood
+            const hoodGeo = new THREE.BoxGeometry(2.0, 0.35, 1.4);
+            const hood = new THREE.Mesh(hoodGeo, bodyMat);
+            hood.position.set(0, 0.65, 1.3);
+            hood.rotation.x = 0.15;
+            carGroup.add(hood);
+
+            // Headlights
+            const headGeo = new THREE.BoxGeometry(0.6, 0.1, 0.1);
+            const headMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const leftHead = new THREE.Mesh(headGeo, headMat);
+            leftHead.position.set(-0.7, 0.6, 2.1);
+            const rightHead = new THREE.Mesh(headGeo, headMat);
+            rightHead.position.set(0.7, 0.6, 2.1);
+            carGroup.add(leftHead);
+            carGroup.add(rightHead);
+
+            // Rear SpaceX Cold Gas Thruster Nozzles
+            const thrusterGeo = new THREE.CylinderGeometry(0.2, 0.3, 0.6, 16);
+            const thrusterMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.9, roughness: 0.2 });
+            
+            const leftThruster = new THREE.Mesh(thrusterGeo, thrusterMat);
+            leftThruster.rotation.x = Math.PI / 2;
+            leftThruster.position.set(-0.6, 0.5, -2.1);
+            
+            const rightThruster = new THREE.Mesh(thrusterGeo, thrusterMat);
+            rightThruster.rotation.x = Math.PI / 2;
+            rightThruster.position.set(0.6, 0.5, -2.1);
+
+            carGroup.add(leftThruster);
+            carGroup.add(rightThruster);
+
+            // Wheels
+            const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.3, 24);
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.5 });
+            const wheels = [];
+            [
+                [-1.05, 0.38, 1.3],
+                [1.05, 0.38, 1.3],
+                [-1.05, 0.38, -1.3],
+                [1.05, 0.38, -1.3]
+            ].forEach(pos => {
+                const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.position.set(...pos);
+                wheel.castShadow = true;
+                carGroup.add(wheel);
+                wheels.push(wheel);
+            });
+
+            return { mesh: carGroup, wheels: wheels, bodyMaterial: bodyMat };
+        }
+
+        const roadster = createTeslaRoadster();
+        scene.add(roadster.mesh);
+        roadster.mesh.position.set(0, 0, 0);
+
+        // --- Thruster Fire / Plasma Jet Particle System ---
+        const particleCount = 60;
+        const particleGeo = new THREE.BufferGeometry();
+        const particlePositions = new Float32Array(particleCount * 3);
+        const particleSizes = new Float32Array(particleCount);
+
+        for (let i = 0; i < particleCount; i++) {
+            particlePositions[i * 3] = 0;
+            particlePositions[i * 3 + 1] = -100;
+            particlePositions[i * 3 + 2] = 0;
+            particleSizes[i] = Math.random() * 0.4 + 0.2;
+        }
+
+        particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+        particleGeo.setAttribute('size', new THREE.BufferAttribute(particleSizes, 1));
+
+        const particleMat = new THREE.PointsMaterial({
+            color: 0x0284c7,
+            size: 0.4,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
+        });
+
+        const thrusterParticles = new THREE.Points(particleGeo, particleMat);
+        scene.add(thrusterParticles);
+
+        // --- 3D Police Interceptor Car Construction ---
+        function createPoliceCarMesh() {
+            const group = new THREE.Group();
+
+            // Police Black & White Body
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2 }); // Black hood/back
+            const doorMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2 }); // White middle doors
+
+            const bodyGeo = new THREE.BoxGeometry(2.1, 0.8, 4.4);
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.45;
+            body.castShadow = true;
+            group.add(body);
+
+            // White Door Panels
+            const doorGeo = new THREE.BoxGeometry(2.12, 0.75, 1.8);
+            const doors = new THREE.Mesh(doorGeo, doorMat);
+            doors.position.set(0, 0.46, 0);
+            group.add(doors);
+
+            // Cabin Glass
+            const cabinGeo = new THREE.BoxGeometry(1.8, 0.65, 2.0);
+            const cabinMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.1 });
+            const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+            cabin.position.set(0, 1.0, -0.2);
+            group.add(cabin);
+
+            // Emergency Police Lightbar (Red & Blue LED Bar)
+            const lightbarBase = new THREE.Mesh(
+                new THREE.BoxGeometry(1.2, 0.12, 0.3),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b })
+            );
+            lightbarBase.position.set(0, 1.38, -0.2);
+            group.add(lightbarBase);
+
+            // Red Emergency LED Light
+            const redLight = new THREE.Mesh(
+                new THREE.BoxGeometry(0.5, 0.16, 0.25),
+                new THREE.MeshBasicMaterial({ color: 0xef4444 })
+            );
+            redLight.position.set(-0.35, 1.4, -0.2);
+            group.add(redLight);
+
+            // Blue Emergency LED Light
+            const blueLight = new THREE.Mesh(
+                new THREE.BoxGeometry(0.5, 0.16, 0.25),
+                new THREE.MeshBasicMaterial({ color: 0x3b82f6 })
+            );
+            blueLight.position.set(0.35, 1.4, -0.2);
+            group.add(blueLight);
+
+            // Wheels
+            const wGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.25, 16);
+            const wMat = new THREE.MeshStandardMaterial({ color: 0x020617 });
+            [
+                [-1.05, 0.38, 1.3],
+                [1.05, 0.38, 1.3],
+                [-1.05, 0.38, -1.3],
+                [1.05, 0.38, -1.3]
+            ].forEach(pos => {
+                const wheel = new THREE.Mesh(wGeo, wMat);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.position.set(...pos);
+                group.add(wheel);
+            });
+
+            return { group, redLight, blueLight };
+        }
+
+        // Active Chasing Police Units System
+        const policeCars = [];
+
+        function spawnPoliceUnit(spawnAhead = false) {
+            const lane = Math.floor(Math.random() * NUM_LANES);
+            const laneX = -ROAD_WIDTH / 2 + lane * laneStep + laneStep / 2;
+            const policeData = createPoliceCarMesh();
+
+            // Spawn either behind player (pursuit from rear) or ahead as roadblock interceptor
+            const spawnZ = spawnAhead ? -ROAD_LENGTH * 0.7 : 20 + Math.random() * 15;
+            policeData.group.position.set(laneX, 0, spawnZ);
+
+            scene.add(policeData.group);
+
+            policeCars.push({
+                mesh: policeData.group,
+                redLight: policeData.redLight,
+                blueLight: policeData.blueLight,
+                targetLaneX: laneX,
+                speed: spawnAhead ? 40 : 85, // Fast pursuers from behind
+                laneChangeTimer: 0,
+                width: 2.1,
+                length: 4.4
+            });
+        }
+
+        // --- Dynamic NPC Civilian Traffic ---
+        const trafficCars = [];
+
+        function createNPCCarMesh(typeIndex, colorHex) {
+            const group = new THREE.Group();
+            let length = 4.2, width = 2.0, height = 1.0;
+            if (typeIndex === 1) { length = 5.0; width = 2.2; height = 1.5; }
+            if (typeIndex === 2) { length = 6.8; width = 2.4; height = 2.2; }
+
+            const bodyMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.3 });
+            const bodyGeo = new THREE.BoxGeometry(width, height * 0.6, length);
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = height * 0.3;
+            body.castShadow = true;
+            group.add(body);
+
+            const cabinGeo = new THREE.BoxGeometry(width * 0.85, height * 0.5, length * 0.45);
+            const cabinMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.1 });
+            const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+            cabin.position.set(0, height * 0.65, -length * 0.05);
+            group.add(cabin);
+
+            const wGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.25, 16);
+            const wMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
+            [
+                [-width * 0.5, 0.35, length * 0.3],
+                [width * 0.5, 0.35, length * 0.3],
+                [-width * 0.5, 0.35, -length * 0.3],
+                [width * 0.5, 0.35, -length * 0.3]
+            ].forEach(pos => {
+                const wheel = new THREE.Mesh(wGeo, wMat);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.position.set(...pos);
+                group.add(wheel);
+            });
+
+            return { group, height, length, width };
+        }
+
+        const npcColors = [0xd97706, 0x0284c7, 0x16a34a, 0xd97706, 0x475569, 0x2563eb];
+
+        function spawnTraffic() {
+            const lane = Math.floor(Math.random() * NUM_LANES);
+            const laneX = -ROAD_WIDTH / 2 + lane * laneStep + laneStep / 2;
+            const typeIdx = Math.floor(Math.random() * 3);
+            const color = npcColors[Math.floor(Math.random() * npcColors.length)];
+
+            const carData = createNPCCarMesh(typeIdx, color);
+            carData.group.position.set(laneX, 0, -ROAD_LENGTH + 50);
+            scene.add(carData.group);
+
+            trafficCars.push({
+                mesh: carData.group,
+                speed: 35 + Math.random() * 30,
+                height: carData.height,
+                length: carData.length,
+                width: carData.width
+            });
+        }
+
+        // --- Sky Aerial Energy Rings ---
+        const energyRings = [];
+        const ringGeo = new THREE.TorusGeometry(2.5, 0.2, 16, 32);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0xd97706 });
+
+        function spawnEnergyRing() {
+            const lane = Math.floor(Math.random() * NUM_LANES);
+            const laneX = -ROAD_WIDTH / 2 + lane * laneStep + laneStep / 2;
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.position.set(laneX, 6.5, -ROAD_LENGTH + 50);
+            scene.add(ring);
+            energyRings.push(ring);
+        }
+
+        // --- Game State Variables ---
+        let gameRunning = false;
+        let score = 0;
+        let ringsCollected = 0;
+        let highScore = localStorage.getItem('tesla_roadster_highscore') || 0;
+        let speed = 75;
+        let screenShake = 0;
+
+        // Flying / Thruster System Parameters
+        let isFlying = false;
+        let flightHeight = 0;
+        let airTankPressure = 100.0;
+        let isRefilling = false;
+        let cooldownTimeRemaining = 0.0;
+        const REFILL_COOLDOWN_TOTAL = 5.0;
+        const TANK_DRAIN_RATE = 28.0;
+
+        // Steering Controls
+        const keys = { left: false, right: false, fly: false };
+
+        // DOM Cache
+        const speedDisplay = document.getElementById('speedDisplay');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const ringsDisplay = document.getElementById('ringsDisplay');
+        const thrusterBar = document.getElementById('thrusterBar');
+        const thrusterTimerText = document.getElementById('thrusterTimerText');
+        const flightStateTag = document.getElementById('flightStateTag');
+        const centerNotice = document.getElementById('centerNotice');
+        const cooldownNotice = document.getElementById('cooldownNotice');
+
+        // Input Listeners
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+            if (e.code === 'Space') keys.fly = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+            if (e.code === 'Space') keys.fly = false;
+        });
+
+        const mobileFlyBtn = document.getElementById('mobileFlyBtn');
+        mobileFlyBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys.fly = true; });
+        mobileFlyBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys.fly = false; });
+
+        let touchStartX = 0;
+        window.addEventListener('touchstart', (e) => { if (e.touches.length > 0) touchStartX = e.touches[0].clientX; });
+        window.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 0) {
+                const diff = e.touches[0].clientX - touchStartX;
+                if (diff < -20) { keys.left = true; keys.right = false; }
+                else if (diff > 20) { keys.right = true; keys.left = false; }
+                else { keys.left = false; keys.right = false; }
+            }
+        });
+        window.addEventListener('touchend', () => { keys.left = false; keys.right = false; });
+
+        function showNotice(text, colorClass) {
+            centerNotice.textContent = text;
+            centerNotice.className = `self-center text-center font-orbitron text-lg md:text-2xl font-black transition-opacity duration-300 tracking-wider ${colorClass} opacity-100`;
+            setTimeout(() => { centerNotice.classList.add('opacity-0'); }, 1500);
+        }
+
+        // --- Main Game Loop & Logic ---
+        let lastTime = performance.now();
+        let spawnTimer = 0;
+        let ringSpawnTimer = 0;
+        let policeSpawnTimer = 0;
+
+        function updateGame(now) {
+            const dt = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+
+            if (!gameRunning) {
+                renderer.render(scene, camera);
+                requestAnimationFrame(updateGame);
+                return;
+            }
+
+            speed += dt * 0.8;
+            score += speed * dt * 0.1;
+            audio.setEnginePitch(speed);
+
+            // Steering
+            const steerSpeed = 18;
+            if (keys.left && roadster.mesh.position.x > -ROAD_WIDTH / 2 + 1.5) {
+                roadster.mesh.position.x -= steerSpeed * dt;
+                roadster.mesh.rotation.z = Math.min(roadster.mesh.rotation.z + 0.05, 0.25);
+            } else if (keys.right && roadster.mesh.position.x < ROAD_WIDTH / 2 - 1.5) {
+                roadster.mesh.position.x += steerSpeed * dt;
+                roadster.mesh.rotation.z = Math.max(roadster.mesh.rotation.z - 0.05, -0.25);
+            } else {
+                roadster.mesh.rotation.z *= 0.9;
+            }
+
+            roadster.wheels.forEach(w => {
+                if (!isFlying) w.rotation.x += speed * dt * 0.1;
+            });
+
+            // Thruster & Flying Mode Logic
+            const canFly = keys.fly && airTankPressure > 0 && !isRefilling;
+
+            if (canFly) {
+                isFlying = true;
+                flightHeight = Math.min(flightHeight + dt * 2.5, 1.0);
+                airTankPressure = Math.max(airTankPressure - TANK_DRAIN_RATE * dt, 0.0);
+                audio.setThrusterActive(true);
+
+                if (airTankPressure <= 0) {
+                    isRefilling = true;
+                    cooldownTimeRemaining = REFILL_COOLDOWN_TOTAL;
+                    showNotice('AIR TANK DEPLETED! 5S REFILL COOLDOWN', 'text-red-600');
+                }
+            } else {
+                isFlying = false;
+                flightHeight = Math.max(flightHeight - dt * 2.0, 0.0);
+                audio.setThrusterActive(false);
+
+                if (airTankPressure < 100 && !isRefilling && !keys.fly) {
+                    isRefilling = true;
+                    cooldownTimeRemaining = REFILL_COOLDOWN_TOTAL;
+                    showNotice('THRUSTER REFILL INITIATED (5s)', 'text-amber-600');
+                }
+            }
+
+            // 5 Second Air Refill Cooldown
+            if (isRefilling) {
+                cooldownTimeRemaining -= dt;
+                airTankPressure = ((REFILL_COOLDOWN_TOTAL - Math.max(cooldownTimeRemaining, 0)) / REFILL_COOLDOWN_TOTAL) * 100;
+
+                if (cooldownTimeRemaining <= 0) {
+                    isRefilling = false;
+                    airTankPressure = 100.0;
+                    audio.playRefillComplete();
+                    showNotice('SPACEX THRUSTERS REPRESSURIZED!', 'text-cyan-600');
+                }
+            }
+
+            roadster.mesh.position.y = flightHeight * 6.5;
+            roadster.mesh.rotation.x = -flightHeight * 0.15;
+
+            // Particles
+            const pPositions = particleGeo.attributes.position.array;
+            if (isFlying || flightHeight > 0.1) {
+                for (let i = 0; i < particleCount; i++) {
+                    pPositions[i * 3] = roadster.mesh.position.x + (Math.random() - 0.5) * 1.2;
+                    pPositions[i * 3 + 1] = roadster.mesh.position.y - 0.2 - Math.random() * 2.0;
+                    pPositions[i * 3 + 2] = roadster.mesh.position.z - 2.0 - Math.random() * 3.0;
+                }
+            } else {
+                for (let i = 0; i < particleCount; i++) {
+                    pPositions[i * 3 + 1] = -100;
+                }
+            }
+            particleGeo.attributes.position.needsUpdate = true;
+
+            // Highway Scroll
+            const distanceMoved = speed * dt * 2.5;
+            dashLines.forEach(dash => {
+                dash.position.z += distanceMoved;
+                if (dash.position.z > 50) dash.position.z -= ROAD_LENGTH;
+            });
+
+            buildings.forEach(bldg => {
+                bldg.position.z += distanceMoved * 0.3;
+                if (bldg.position.z > 50) bldg.position.z -= ROAD_LENGTH;
+            });
+
+            // --- Police Pursuit & Interceptor AI Logic ---
+            policeSpawnTimer += dt;
+            if (policeCars.length < 3 && policeSpawnTimer > 4.0) {
+                policeSpawnTimer = 0;
+                spawnPoliceUnit(Math.random() > 0.5); // Randomly rear pursuit or roadblock ahead
+            }
+
+            let closestPoliceDist = 999;
+
+            for (let i = policeCars.length - 1; i >= 0; i--) {
+                const pc = policeCars[i];
+
+                // Flashing LED Emergency Lightbar Animation
+                const flashTime = (now * 0.01) % 2;
+                pc.redLight.material.color.setHex(flashTime > 1 ? 0xef4444 : 0x450a0a);
+                pc.blueLight.material.color.setHex(flashTime <= 1 ? 0x3b82f6 : 0x172554);
+
+                // Police Chase AI Steer Tracking
+                pc.laneChangeTimer += dt;
+                if (pc.laneChangeTimer > 0.8) {
+                    pc.laneChangeTimer = 0;
+                    // Align lane towards player's X position
+                    pc.targetLaneX = roadster.mesh.position.x;
+                }
+
+                // Smoothly steer police car towards target lane
+                pc.mesh.position.x += (pc.targetLaneX - pc.mesh.position.x) * dt * 3.0;
+
+                // Move police position relative to player speed
+                if (pc.mesh.position.z > 0) {
+                    // Chasing from behind
+                    pc.mesh.position.z -= (pc.speed - speed * 0.4) * dt;
+                } else {
+                    // Driving ahead or intercepting
+                    pc.mesh.position.z += (speed - pc.speed) * dt * 2.5;
+                }
+
+                // Track distance for siren audio
+                const pDist = Math.abs(pc.mesh.position.z - roadster.mesh.position.z);
+                if (pDist < closestPoliceDist) closestPoliceDist = pDist;
+
+                // Police Arrest Collision Check (Only triggers if player is on ground level)
+                const distX = Math.abs(roadster.mesh.position.x - pc.mesh.position.x);
+                if (pDist < pc.length * 0.8 && distX < pc.width * 0.8 && roadster.mesh.position.y < 1.2) {
+                    triggerGameOver(true); // BUSTED BY POLICE
+                    return;
+                }
+
+                // Remove out-of-range police units
+                if (pc.mesh.position.z > 60 || pc.mesh.position.z < -ROAD_LENGTH) {
+                    scene.remove(pc.mesh);
+                    policeCars.splice(i, 1);
+                }
+            }
+
+            // Update siren sound
+            audio.updatePoliceSiren(policeCars.length > 0, closestPoliceDist);
+
+            // Civilian Traffic Update
+            spawnTimer += dt;
+            if (spawnTimer > Math.max(0.5, 1.8 - speed * 0.008)) {
+                spawnTimer = 0;
+                spawnTraffic();
+            }
+
+            for (let i = trafficCars.length - 1; i >= 0; i--) {
+                const tc = trafficCars[i];
+                tc.mesh.position.z += (speed - tc.speed) * dt * 2.5;
+
+                const distZ = Math.abs(roadster.mesh.position.z - tc.mesh.position.z);
+                const distX = Math.abs(roadster.mesh.position.x - tc.mesh.position.x);
+
+                if (distZ < tc.length * 0.7 && distX < tc.width * 0.8 && roadster.mesh.position.y < tc.height) {
+                    triggerGameOver(false); // CRASH COLLISION
+                    return;
+                }
+
+                if (tc.mesh.position.z > 50) {
+                    scene.remove(tc.mesh);
+                    trafficCars.splice(i, 1);
+                }
+            }
+
+            // Energy Rings Update
+            ringSpawnTimer += dt;
+            if (ringSpawnTimer > 3.0) {
+                ringSpawnTimer = 0;
+                spawnEnergyRing();
+            }
+
+            for (let i = energyRings.length - 1; i >= 0; i--) {
+                const ring = energyRings[i];
+                ring.position.z += speed * dt * 2.5;
+                ring.rotation.y += dt * 3.0;
+
+                const distZ = Math.abs(roadster.mesh.position.z - ring.position.z);
+                const distX = Math.abs(roadster.mesh.position.x - ring.position.x);
+                const distY = Math.abs(roadster.mesh.position.y - ring.position.y);
+
+                if (distZ < 2.5 && distX < 2.2 && distY < 2.2) {
+                    ringsCollected++;
+                    score += 250;
+                    audio.playRingCollect();
+                    showNotice('+250 BOOST RING!', 'text-amber-600');
+                    scene.remove(ring);
+                    energyRings.splice(i, 1);
+                    continue;
+                }
+
+                if (ring.position.z > 50) {
+                    scene.remove(ring);
+                    energyRings.splice(i, 1);
+                }
+            }
+
+            // Camera Setup
+            camera.position.x = roadster.mesh.position.x * 0.4;
+            camera.position.y = 5.5 + roadster.mesh.position.y * 0.5;
+            camera.position.z = 12;
+            camera.lookAt(roadster.mesh.position.x * 0.2, roadster.mesh.position.y + 1, -20);
+
+            if (screenShake > 0) {
+                camera.position.x += (Math.random() - 0.5) * screenShake;
+                camera.position.y += (Math.random() - 0.5) * screenShake;
+                screenShake -= dt * 10;
+            }
+
+            camera.fov = 60 + (isFlying ? 12 : 0) + (speed * 0.08);
+            camera.updateProjectionMatrix();
+
+            // HUD
+            speedDisplay.textContent = Math.floor(speed * 1.6);
+            scoreDisplay.textContent = Math.floor(score);
+            ringsDisplay.textContent = ringsCollected;
+
+            thrusterBar.style.width = `${airTankPressure.toFixed(1)}%`;
+
+            if (isRefilling) {
+                thrusterBar.className = "h-full bg-gradient-to-r from-amber-500 to-red-500 rounded-full transition-all duration-100 progress-glow text-amber-500";
+                thrusterTimerText.textContent = `REFILLING: ${cooldownTimeRemaining.toFixed(1)}s`;
+                thrusterTimerText.className = "text-amber-600 font-bold font-mono";
+                cooldownNotice.textContent = "COOLDOWN LOCKOUT ACTIVE";
+            } else {
+                thrusterBar.className = "h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-100 progress-glow text-cyan-500";
+                thrusterTimerText.textContent = `${Math.floor(airTankPressure)}% READY`;
+                thrusterTimerText.className = "text-cyan-600 font-bold";
+                cooldownNotice.textContent = "HOLD [SPACE] TO FLY";
+            }
+
+            if (isFlying) {
+                flightStateTag.innerHTML = `<span class="w-2 h-2 rounded-full bg-cyan-500 animate-ping"></span> SKYWAY FLIGHT ACTIVE`;
+                flightStateTag.className = "mt-1 text-xs font-bold font-orbitron text-cyan-600 flex items-center gap-1.5";
+            } else {
+                flightStateTag.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> GROUND MODE`;
+                flightStateTag.className = "mt-1 text-xs font-bold font-orbitron text-slate-600 flex items-center gap-1.5";
+            }
+
+            renderer.render(scene, camera);
+            requestAnimationFrame(updateGame);
+        }
+
+        // --- Game Flow Handlers ---
+        function startGame() {
+            audio.init();
+            gameRunning = true;
+            score = 0;
+            ringsCollected = 0;
+            speed = 75;
+            airTankPressure = 100.0;
+            isRefilling = false;
+            cooldownTimeRemaining = 0.0;
+            isFlying = false;
+            flightHeight = 0;
+
+            roadster.mesh.position.set(0, 0, 0);
+
+            // Reset police & traffic arrays
+            policeCars.forEach(pc => scene.remove(pc.mesh));
+            policeCars.length = 0;
+
+            trafficCars.forEach(tc => scene.remove(tc.mesh));
+            trafficCars.length = 0;
+
+            energyRings.forEach(r => scene.remove(r));
+            energyRings.length = 0;
+
+            document.getElementById('startOverlay').classList.add('hidden');
+            document.getElementById('gameOverOverlay').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+        }
+
+        function triggerGameOver(bustedByPolice) {
+            gameRunning = false;
+            audio.playCrash();
+            audio.setThrusterActive(false);
+            audio.updatePoliceSiren(false, 999);
+            screenShake = 1.5;
+
+            if (score > highScore) {
+                highScore = Math.floor(score);
+                localStorage.setItem('tesla_roadster_highscore', highScore);
+            }
+
+            const titleElem = document.getElementById('gameOverTitle');
+            const headingElem = document.getElementById('gameOverHeading');
+
+            if (bustedByPolice) {
+                titleElem.textContent = "BUSTED BY POLICE PURSUIT";
+                headingElem.textContent = "ARRESTED & TERMINATED";
+            } else {
+                titleElem.textContent = "HIGH SPEED IMPACT COLLISION";
+                headingElem.textContent = "CRASH TERMINATED";
+            }
+
+            document.getElementById('finalScore').textContent = Math.floor(score);
+            document.getElementById('finalRings').textContent = ringsCollected;
+            document.getElementById('finalHighScore').textContent = highScore;
+
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('gameOverOverlay').classList.remove('hidden');
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('restartBtn').addEventListener('click', startGame);
+
+        requestAnimationFrame(updateGame);
+    </script>
+</body>
+</html>
